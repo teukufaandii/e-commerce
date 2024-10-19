@@ -5,6 +5,8 @@ import cors from "cors";
 
 import mysqlDbConnect from "./db/mysqlConnect.js";
 
+import authRoutes from "./routes/auth.routes.js";
+
 const app = express();
 
 dotenv.config();
@@ -21,9 +23,7 @@ app.use(
 
 const PORT = process.env.PORT || 8000;
 
-app.use("/api/test", (req, res) => {
-  res.json({ message: "Hello world" });
-});
+app.use("/api/auth", authRoutes);
 
 app.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
