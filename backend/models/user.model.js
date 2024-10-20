@@ -1,17 +1,5 @@
 import { Sequelize } from "sequelize";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-export const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
-  {
-    host: process.env.DB_HOST,
-    dialect: "mysql",
-  }
-);
+import { sequelize } from "../db/mysqlConnect.js";
 
 export const User = sequelize.define("users", {
   userId: {
@@ -33,9 +21,17 @@ export const User = sequelize.define("users", {
     type: Sequelize.STRING(255),
     defaultValue: "user",
   },
+  failedAttempts: {
+    type: Sequelize.INTEGER,
+    defaultValue: 0,
+  },
+  lastFailedAttempt: {
+    type: Sequelize.DATE,
+    allowNull: true,
+  },
 });
 
-sequelize.sync()
-  .then(() => {
-    console.log('Database & tables created!');
-  });
+sequelize
+  .sync({ alter: true })
+  .then(() => console.log("User table created successfully"))
+  .catch((error) => console.error("Unable to create table : ", error));

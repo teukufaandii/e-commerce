@@ -35,18 +35,97 @@ export const register = async (req, res) => {
       userId: newUser.userId,
       name: newUser.name,
       email: newUser.email,
-      createdAt: newUser.createdAt,
-      updatedAt: newUser.updatedAt,
     };
 
-    return res
-      .status(201)
-      .json({
-        message: "User created successfully",
-        user: userWithoutSensitiveData,
-      });
+    return res.status(201).json({
+      message: "User created successfully",
+      user: userWithoutSensitiveData,
+    });
   } catch (error) {
     console.error("Error in user registration:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const login = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const currentTime = new Date();
+
+    if (user.lastFailedAttempt) {
+      const timeDifference = currentTime - new Date(user.lastFailedAttempt);
+      const tenMinutesInMillis = 10 * 60 * 1000;
+
+      if (timeDifference >= tenMinutesInMillis) {
+        await User.update({ failedAttempts: 0 }, { where: { email } });
+        user.failedAttempts = 0;
+      }
+    }
+
+    if (user.failedAttempts >= 5) {
+      return res.status(403).json({
+        message:
+          "Too many failed attempts. Account is temporarily locked. Please try again later.",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      await User.update(
+        {
+          failedAttempts: user.failedAttempts + 1,
+          lastFailedAttempt: currentTime,
+        },
+        { where: { email } }
+      );
+
+      if (user.failedAttempts + 1 >= 5) {
+        return res.status(403).json({
+          message:
+            "Too many failed attempts. Account is temporarily locked. Please try again later.",
+        });
+      }
+
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    if (passwordMatch && user.failedAttempts > 0) {
+      await User.update(
+        { failedAttempts: 0, lastFailedAttempt: null },
+        { where: { email } }
+      );
+    }
+
+    generateTokenAndSetCookies(user, res);
+
+    const userWithoutSensitiveData = {
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+    };
+
+    return res.status(200).json({
+      message: "User logged in successfully",
+      user: userWithoutSensitiveData,
+    });
+  } catch (error) {
+    console.error("Error in user login:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    res.clearCookie("jwt");
+    return res.status(200).json({ message: "User logged out successfully" });
+  } catch (error) {
+    console.error("Error in user logout:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
