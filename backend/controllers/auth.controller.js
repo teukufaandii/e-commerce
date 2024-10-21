@@ -129,3 +129,23 @@ export const logout = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getme = async (req, res) => {
+  try {
+    const user = await User.findOne({ where: { userId: req.user.userId } });
+
+    const userWithoutSensitiveData = {
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+    return res.status(200).json({
+      message: "User retrieved successfully",
+      user: userWithoutSensitiveData,
+    });
+  } catch (error) {
+    console.error("Error in user getme:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
