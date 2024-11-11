@@ -1,37 +1,60 @@
-import { Sequelize } from "sequelize";
-import { sequelize } from "../db/mysqlConnect.js";
+export default (sequelize, DataTypes) => {
+  const Users = sequelize.define('Users', {
+    id: {
+      type: DataTypes.CHAR(36),
+      primaryKey: true,
+    },
+    role: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'user',
+      validate: { isIn: [['admin', 'user']] },
+    },
+    slug: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    email: {
+      type: DataTypes.STRING(255),
+      unique: true,
+      allowNull: false,
+      validate: { isEmail: true },
+    },
+    email_validated:{
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false
+    },
+    phone:{
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    phone_validated: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false
+    },
+    bio:{
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
+  }, {
+    tableName: 'users',
+    timestamps: false,
+  });
 
-export const User = sequelize.define("users", {
-  userId: {
-    type: Sequelize.UUID,
-    defaultValue: Sequelize.UUIDV4,
-    primaryKey: true,
-  },
-  name: {
-    type: Sequelize.STRING(255),
-  },
-  email: {
-    type: Sequelize.STRING(255),
-    unique: true,
-  },
-  password: {
-    type: Sequelize.STRING(255),
-  },
-  role: {
-    type: Sequelize.STRING(255),
-    defaultValue: "user",
-  },
-  failedAttempts: {
-    type: Sequelize.INTEGER,
-    defaultValue: 0,
-  },
-  lastFailedAttempt: {
-    type: Sequelize.DATE,
-    allowNull: true,
-  },
-});
-
-sequelize
-  .sync({ alter: true })
-  .then(() => console.log("User table created successfully"))
-  .catch((error) => console.error("Unable to create table : ", error));
+  return Users;
+};

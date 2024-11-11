@@ -1,5 +1,7 @@
-import { User } from "../models/user.model.js";
+import db from "../models/index.js";
 import jwt from "jsonwebtoken";
+
+const { Users } = db;
 
 export const protectRoute = async (req, res, next) => {
   try {
@@ -10,16 +12,16 @@ export const protectRoute = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const userId = decoded.user?.userId;
+    const id = decoded.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ msg: "Unauthorized: Invalid token payload" });
+    if (!id) {
+      return res.status(401).json({ msg: "Unauthorized: Invalid token payload", });
     }
 
-    const user = await User.findOne({ where: { userId } });
+    const user = await Users.findOne({ where: { id } });
 
     if (!user) {
-      return res.status(401).json({ msg: "Unauthorized: User not found" });
+      return res.status(401).json({ msg: "Unauthorized: Users not found" });
     }
 
     req.user = user;

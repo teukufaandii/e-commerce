@@ -7,6 +7,8 @@ import mysqlDbConnect from "./db/mysqlConnect.js";
 
 import authRoutes from "./routes/auth.routes.js";
 
+import db from "./models/index.js";
+
 const app = express();
 
 dotenv.config();
@@ -20,6 +22,17 @@ app.use(
     credentials: true,
   })
 );
+
+const syncDatabase = async () => {
+  try {
+    await db.sequelize.sync({ force: false }); // Set force: true to drop existing tables
+    console.log('Database synchronized successfully.');
+  } catch (error) {
+    console.error('Error synchronizing the database:', error);
+  }
+};
+
+syncDatabase();
 
 const PORT = process.env.PORT || 8000;
 
