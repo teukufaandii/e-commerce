@@ -13,14 +13,6 @@ export default (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      description: {
-        type: DataTypes.TEXT,
-        allowNull: false,
-      },
-      tags: {
-        type: DataTypes.JSON,
-        allowNull: false,
-      },
       parent_category: {
         type: DataTypes.CHAR(36),
         allowNull: true,

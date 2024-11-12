@@ -26,11 +26,11 @@ export default (sequelize, DataTypes) => {
       },
       discount_type:{
         type: DataTypes.ENUM('percentage', 'fixed'),
-        allowNull: false,
+        allowNull: true,
       },
       discount_value: {
         type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
+        allowNull: true,
       },
       created_at: {
         type: DataTypes.DATE,
