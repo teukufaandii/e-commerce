@@ -17,6 +17,14 @@ export default (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      passwordToken: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      passwordTokenExpiration: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
     }, {
       tableName: 'credentials',
       timestamps: false,

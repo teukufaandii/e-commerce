@@ -13,7 +13,7 @@ export const adminAddProduct = async (req, res) => {
   const { name, price, description, picture, discount_type, discount_value } = req.body;
 
   try {
-    const id_gen = "prod" + Date.now();
+    const id_gen = "prod-" + Date.now();
 
     const category_id = req.body.category_id;
     const validate_category = await Categories.findOne({
@@ -32,12 +32,12 @@ export const adminAddProduct = async (req, res) => {
     }
 
     const discount_types = discount_type.toLowerCase();
-
+   
     if (discount_type !== "percentage" && discount_type !== "fixed") {
       return res
         .status(400)
         .json({ message: "Discount type must be 'percentage' or 'fixed'" });
-    }
+    } 
 
     if (discount_value < 0) {
       return res
@@ -89,6 +89,7 @@ export const adminAddProduct = async (req, res) => {
         price,
         description,
         picture: result.secure_url,
+        public_id: result.public_id,
         discount_type: discount_types,
         discount_value,
       });
@@ -99,5 +100,25 @@ export const adminAddProduct = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const adminDeleteProduct = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const product = await Products.findOne({ where: { id } });
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    await cloudinary.v2.uploader.destroy(product.public_id);
+
+    await Products.destroy({ where: { id } });
+    
+    return res.status(200).json({ message: "Product deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error in adminDeleteProduct" });
   }
 };

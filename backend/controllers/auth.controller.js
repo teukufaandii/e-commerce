@@ -2,6 +2,8 @@ import db from "../models/index.js";
 import bcrypt from "bcryptjs";
 import { generateTokenAndSetCookies } from "../libs/utils/generateCookies.js";
 import { v4 as uuidv4 } from "uuid";
+import { sendEmail } from "../libs/utils/emailService.js";
+import crypto from "crypto";
 
 const { Users, Credentials } = db;
 
@@ -50,7 +52,7 @@ export const register = async (req, res) => {
     let uniqueSlug = slug;
 
     while (await Users.findOne({ where: { slug: uniqueSlug } })) {
-      const randomNumber = Math.floor(Math.random() * 10000); 
+      const randomNumber = Math.floor(Math.random() * 10000);
       uniqueSlug = `${slug}-${randomNumber}`;
     }
 
@@ -106,7 +108,10 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const passwordMatch = await bcrypt.compare(inputPassword, credentials.password_hash);
+    const passwordMatch = await bcrypt.compare(
+      inputPassword,
+      credentials.password_hash
+    );
 
     if (!passwordMatch) {
       return res.status(401).json({ message: "Invalid email or password" });
@@ -159,5 +164,128 @@ export const getme = async (req, res) => {
   } catch (error) {
     console.error("Error in user getme:", error);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await Users.findOne({ email });
+
+    if (!user) {
+      return res.status(404).send("Email not found");
+    }
+
+    const credentials = await Credentials.findOne({
+      where: { user_id: user.id },
+    });
+
+    if (
+      credentials.passwordToken &&
+      credentials.passwordTokenExpiration > Date.now()
+    ) {
+      return res
+        .status(400)
+        .send("You have already requested a password reset.");
+    } else if (
+      credentials.passwordToken &&
+      credentials.passwordTokenExpiration < Date.now()
+    ) {
+      await Credentials.update(
+        {
+          passwordToken: null,
+          passwordTokenExpiration: null,
+        },
+        { where: { user_id: user.id } }
+      );
+    }
+
+    if (!credentials) {
+      return res.status(404).send("User  not found");
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    await Credentials.update(
+      {
+        passwordToken: resetToken,
+        passwordTokenExpiration: Date.now() + 3600000,
+      },
+      { where: { user_id: user.id } }
+    );
+
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    await sendEmail(
+      user.email,
+      "Password Reset",
+      `Click here to reset your password: ${resetUrl}`
+    );
+
+    res.status(200).send("Password reset link sent to your email.");
+  } catch (error) {
+    console.error("Error in sending password reset email:", error);
+    return res.status(500).send("Server error");
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  const { newPassword, confirmPassword } = req.body;
+  const { token } = req.params;
+
+  if (!token) {
+    return res.status(404).send("Token is required");
+  }
+  try {
+    const userCredential = await Credentials.findOne({
+      where: { passwordToken: token },
+    });
+
+    if (!userCredential || userCredential.passwordTokenExpiration < Date.now()) {
+      return res.status(400).send("Invalid or expired token");
+    }
+
+    const user = await Users.findOne({ where: { id: userCredential.user_id } });
+
+    if (!user) {
+      return res.status(404).send("User  not found");
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .send("Password must be at least 6 characters long");
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).send("Passwords do not match");
+    }
+
+    const matchOldPassword = await bcrypt.compare(
+      newPassword,
+      userCredential.password_hash
+    );
+    if (matchOldPassword) {
+      return res
+        .status(400)
+        .send("New password cannot be the same as the old one");
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await Credentials.update(
+      {
+        password_hash: hashedPassword,
+        password_salt: salt,
+        passwordToken: null,
+        passwordTokenExpiration: null,
+      },
+      { where: { user_id: user.id } }
+    );
+
+    res.status(200).send("Password has been reset successfully.");
+  } catch (error) {
+    console.error("Error in resetting password:", error);
+    return res.status(500).send("Server error");
   }
 };

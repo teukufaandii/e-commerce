@@ -1,8 +1,9 @@
 import express from "express";
 import { protectRoute } from "../middleware/protectRoutes.js";
 import { adminRoutes } from "../middleware/adminRoutes.js";
-import { adminAddProduct } from "../controllers/product.controller.js";
+import { adminAddProduct, adminDeleteProduct } from "../controllers/product.controller.js";
 import multer from "multer";
+import { validateRequestSource } from "../middleware/requestSourceValidator.js";
 
 const router = express.Router();
 
@@ -23,6 +24,8 @@ const storage = multer.diskStorage({
 //guest routes
 
 //admin routes
-router.post("/add", protectRoute, adminRoutes, upload.single("picture"), adminAddProduct);
+router.post("/add", validateRequestSource, protectRoute, adminRoutes, upload.single("picture"), adminAddProduct);
+
+router.delete("/delete/:id", validateRequestSource, protectRoute, adminRoutes, adminDeleteProduct);
 
 export default router;
