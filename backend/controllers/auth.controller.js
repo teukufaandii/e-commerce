@@ -4,6 +4,8 @@ import { generateTokenAndSetCookies } from "../libs/utils/generateCookies.js";
 import { v4 as uuidv4 } from "uuid";
 import { sendEmail } from "../libs/utils/emailService.js";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import { sendsms } from "../libs/utils/sendSms.js";
 
 const { Users, Credentials } = db;
 
@@ -240,7 +242,10 @@ export const resetPassword = async (req, res) => {
       where: { passwordToken: token },
     });
 
-    if (!userCredential || userCredential.passwordTokenExpiration < Date.now()) {
+    if (
+      !userCredential ||
+      userCredential.passwordTokenExpiration < Date.now()
+    ) {
       return res.status(400).send("Invalid or expired token");
     }
 
@@ -287,5 +292,112 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     console.error("Error in resetting password:", error);
     return res.status(500).send("Server error");
+  }
+};
+
+export const sendOtpByPhone = async (req, res) => {
+  const token = req.cookies.jwt;
+  if (!token) {
+    return res.status(401).json({ msg: "Unauthorized: No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const phoneNumber = decoded.user?.phone;
+    const user = decoded.user?.id;
+
+    if (!phoneNumber) {
+      return res.status(404).json({ message: "Phone number not found" });
+    }
+
+    function changeToCountryCode(phoneNumber) {
+      if (phoneNumber.startsWith("0")) {
+        return phoneNumber.replace(/^0/, "+62");
+      }
+      return phoneNumber;
+    }
+
+    const formattedPhoneNumber = changeToCountryCode(phoneNumber);
+    const otp = Math.floor(Math.random() * 1000000)
+      .toString()
+      .padStart(6, "0");
+
+    const otpWithMessage = `Your OTP for phone verification is ${otp}, do not share it with anyone.`;
+
+    sendsms(formattedPhoneNumber, otpWithMessage);
+
+    if (!sendsms) {
+      return res.status(500).json({ message: "Failed to send OTP" });
+    } else {
+      const updateResult = await Credentials.update(
+        {
+          otp: otp,
+          otpExpiration: Date.now() + 3600000,
+        },
+        { where: { user_id: user } }
+      );
+
+      if (updateResult[0] === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+    }
+
+    return res.status(200).json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("Error:", error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+export const verifyOtpByPhone = async (req, res) => {
+  const { otp } = req.body;
+
+  const token = req.cookies.jwt;
+  if (!token) {
+    return res.status(401).json({ msg: "Unauthorized: No token provided" });
+  }
+
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const phoneNumber = decoded.user?.phone;
+  try {
+    const userCredential = await Credentials.findOne({
+      where: { user_id: decoded.user?.id },
+    });
+
+    if (!userCredential) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (userCredential.otp !== otp) {
+      return res.status(401).json({ message: "Invalid OTP" });
+    }
+
+    if (userCredential.otpExpiration < Date.now()) {
+      return res.status(401).json({ message: "OTP has expired" });
+    }
+
+    const user_update = await Users.update(
+      { phone_validated: true },
+      { where: { phone: phoneNumber } }
+    );
+
+    if (user_update[0] === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user_credentials_update = await Credentials.update(
+      { otp: null, otpExpiration: null },
+      { where: { user_id: decoded.user?.id } }
+    );
+
+    if (user_credentials_update[0] === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    return res.status(200).json({ message: "Phone number verified successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };

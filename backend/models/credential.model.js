@@ -25,6 +25,14 @@ export default (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         allowNull: true,
       },
+      otp:{
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      otpExpiration: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      }
     }, {
       tableName: 'credentials',
       timestamps: false,
